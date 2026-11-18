@@ -929,11 +929,10 @@ def generate_report(payload, request):
 
             full_tex = "\n".join(doc_parts)
 
-
-            # NOTE: longtable header repetition is handled per-table in each
-            # chapter file (e.g. \endfirsthead / \endhead).  No automatic
-            # post-processing is applied here to avoid mis-ordering captions
-            # and column headings.
+            # Header repetition is built into every table by styles.begin_table*().
+            # Here we only forbid page breaks inside multirow row-groups (one
+            # member's rows), so a group's label can never spill into the footer.
+            full_tex = S.keep_groups_together(full_tex)
 
             tmp_tex = os.path.join(tmp_dir, request.file_stem + '.tex')
             tmp_pdf = os.path.join(tmp_dir, request.file_stem + '.pdf')

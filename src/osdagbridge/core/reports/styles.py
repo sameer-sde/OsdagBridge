@@ -81,7 +81,7 @@ TABLE = {
     "lt_pre":         "0pt",    # space before a longtable
     "lt_post":        "6pt",    # space after a longtable
     "row_gap":        "6pt",    # extra space after each body row (\\[6pt])
-    "needspace":      "6",      # min. free lines before starting a table
+    "needspace":      "6",      # min. free lines before a floating table
 }
 
 ROW_END = r" \\[" + TABLE["row_gap"] + "]"   # use at the end of every body row
@@ -98,8 +98,11 @@ def table_preamble():
         rf"\setlength{{\LTpost}}{{{TABLE['lt_post']}}}",
         r"\setlength{\LTleft}{\fill}",
         r"\setlength{\LTright}{\fill}",
-        rf"\BeforeBeginEnvironment{{longtable}}{{\needspace{{{TABLE['needspace']}\baselineskip}}}}",
+        # NOTE: no \needspace before longtable. It fights longtable's own page
+        # breaking (empty first fragment + duplicated header) and leaves large
+        # gaps. longtable + repeating headers (begin_table) handle breaks cleanly.
         rf"\BeforeBeginEnvironment{{table}}{{\needspace{{{TABLE['needspace']}\baselineskip}}}}",
+        NBCLINE_DEF,
     ])
 
 
@@ -187,3 +190,82 @@ def kv_table(caption, rows, headers=("Parameter", "Value"), colspec=None):
         body,
         end_table(),
     ])
+
+
+def begin_table_raw(colspec, header_row=None, caption=None):
+    """
+    Like begin_table(), but takes an existing LaTeX header row verbatim
+    (e.g. 'textbf{Girder} & textbf{Check} & ...') and an existing caption
+    body (e.g. 'textbf{Moment Capacity Check}'). Used to convert legacy
+    tables without retyping their headers.  header_row=None -> no header row.
+    """
+    parts = [rf"\begin{{longtable}}{{{colspec}}}"]
+    ncols = _count_cols(colspec)
+
+    def head(cont):
+        out = []
+        if caption:
+            out.append(rf"\caption[]{{{caption} \textit{{(continued)}}}}\\" if cont else rf"\caption{{{caption}}}\\")
+        out.append(r"\hline")
+        if header_row:
+            out += [r"\rowcolor{headerFill}", header_row.rstrip(), r"\hline"]
+        return out
+
+    parts += head(False) + [r"\endfirsthead"] + head(True) + [r"\endhead"]
+    parts += [rf"\multicolumn{{{ncols}}}{{r}}{{{FONT['note_size']}\textit{{Continued on next page}}}} \\",
+              r"\endfoot", r"\endlastfoot"]
+    return "\n".join(parts)
+
+
+def _count_cols(colspec):
+    """Number of columns in a tabular spec like '|C{2cm}|>{\\centering}p{3cm}|'."""
+    n, depth, i = 0, 0, 0
+    while i < len(colspec):
+        ch = colspec[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+        elif depth == 0 and ch.isalpha():
+            n += 1
+        i += 1
+    return n
+
+
+# =============================================================================
+# 8. PAGE-BREAK RULES FOR GROUPED ROWS
+# =============================================================================
+import re as _re
+
+# Rows of one member (e.g. all rows of girder G4) share a \multirow label and
+# are separated by \cline.  If a page break falls inside such a group the
+# label is still drawn at the group's vertical centre — i.e. below the page
+# body, on top of the footer.  We therefore forbid breaks inside a group:
+#   * row ends inside a group become \\*      (no break after the row)
+#   * \cline becomes \nbcline                 (no break after the partial rule;
+#     plain \cline ends with a \vskip where TeX may still break the page)
+NBCLINE_DEF = r"""
+\makeatletter
+% \nbcline: \cline (colortbl version) that forbids a page break after the rule
+\def\nbcline#1{\@nbcline#1\@nil}
+\def\@nbcline#1-#2\@nil{%
+  \omit
+  \@multicnt#1%
+  \advance\@multispan\m@ne
+  \ifnum\@multicnt=\@ne\@firstofone{&\omit}\fi
+  \@multicnt#2%
+  \advance\@multicnt-#1%
+  \advance\@multispan\@ne
+  {\CT@arc@\leaders\hrule\@height\arrayrulewidth\hfill}%
+  \cr
+  \noalign{\nobreak\vskip-\arrayrulewidth}}
+\makeatother
+"""
+
+_IN_GROUP_ROW_END = _re.compile(r"\\\\(\[[^\]\n]*\])?(\s*)\\cline\{([^}]*)\}")
+
+
+def keep_groups_together(tex):
+    """Return tex with no page breaks allowed inside multirow row-groups."""
+    return _IN_GROUP_ROW_END.sub(
+        lambda m: r"\\*" + (m.group(1) or "") + m.group(2) + r"\nbcline{" + m.group(3) + "}", tex)
