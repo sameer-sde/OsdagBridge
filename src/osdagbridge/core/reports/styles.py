@@ -45,6 +45,8 @@ COLORS = {
     "passGreen":   "2E7D32",   # optional PASS accent (charts)
     "headerFill":  "EEF4DC",   # table header row background
     "ruleGray":    "808080",
+    "steelBlue":   "4A6FA5",   # reinforcement / steel in charts
+    "concreteGray":"8C8C8C",   # concrete in charts
 }
 
 

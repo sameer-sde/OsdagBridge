@@ -4,6 +4,8 @@
 # =============================================================================
 from __future__ import annotations
 from osdagbridge.core.reports import styles as S
+from osdagbridge.core.reports import report_charts as RC
+import os
 from typing import TYPE_CHECKING
 
 from osdagbridge.core.utils.common import (
@@ -146,7 +148,7 @@ from osdagbridge.core.reports.report_utils import _tex, _render_value, get_girde
 
 if TYPE_CHECKING:
     pass
-def ch5_design_checks(checks_data, bridge) -> str:
+def ch5_design_checks(checks_data, bridge, images_dir=None) -> str:
     """Chapter 5 — Design Checks.
 
     Parameters
@@ -1062,6 +1064,35 @@ Fatigue Shear Resistance, $Q_r$ & IRC 22 Table 8 ($\phi d$, $N_{sc}$) & """
     ]
     t522_content = "\n".join(_t522)
 
+    # ── Figure 5.x: Utilization-ratio bar charts (data = rows of Table 5.22) ──
+    ur_chart_tex = ""
+    if images_dir:
+        _ur_groups = {"Steel Plate Girders": [], "Concrete Deck Slab": [],
+                      "Cross Bracing": [], "End Diaphragms": []}
+        for _row in _t522:
+            _cells = _row.split(r" \\[6pt]")[0].split(" & ")
+            _label = _cells[0].strip()
+            _ur = RC.parse_number(_cells[-1]) if len(_cells) >= 5 else None
+            if _label.startswith("Girder"):
+                _grp = "Steel Plate Girders"
+            elif _label.startswith("Cross Bracing"):
+                _grp = "Cross Bracing"
+            elif _label.startswith("End Diaphragm"):
+                _grp = "End Diaphragms"
+            else:
+                _grp = "Concrete Deck Slab"
+            _short = _label.split("---")[-1].replace("(slab)", "").strip()
+            _ur_groups[_grp].append((_short, _ur))
+        try:
+            _ur_png = RC.utilization_chart(_ur_groups, os.path.join(images_dir, "ur_summary.png"))
+        except Exception:
+            _ur_png = None   # a chart failure must never break the report
+        ur_chart_tex = RC.figure_tex(
+            _ur_png,
+            r"Utilization ratio (UR = Demand / Capacity) of each check for the primary members. "
+            r"Bars above the red dashed line (UR = 1.0) indicate failing checks.",
+            "fig:ur-summary")
+
     return r"""
 \chapter{Design Checks}
 
@@ -1385,6 +1416,8 @@ End diaphragms at the supports transfer transverse loads to the bearings, restra
 """ + t522_content + r"""
 \end{longtable}
 \noindent\textit{Note: UR = Demand / Capacity. All values $\leq 1.0$ indicate passing checks. The governing check for each component is highlighted in the individual design check sections above.}
+
+""" + ur_chart_tex + r"""
 
 """
 
