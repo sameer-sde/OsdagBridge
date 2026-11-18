@@ -889,8 +889,15 @@ class IRC6_2017:
         """
         Returns braking force as per IRC:6-2017 Clause 211.2.
         Returns:
-            float: Braking force in t (rounded to 3 decimal places)
+            float: Braking force in base units (N), since the wheel loads it
+            sums are defined with the keyfile units (t = kN * g).
+            Divide by `kN` or `t` from keyfile to convert.
         """
+        # Initialise both parts: for 1-2 lane bridges the lane>2 branch never
+        # runs, and braking_force_2 was previously unbound (UnboundLocalError).
+        braking_force_1 = 0.0
+        braking_force_2 = 0.0
+        total_braking_force = 0.0
         for lane in range(1, design_lanes + 1):
             if lane == 1 or lane == 2:
                 wheel_load = IRC6_2017.cl_204_1_ClassA_vehicle()['wheel_loads']

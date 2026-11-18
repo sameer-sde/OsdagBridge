@@ -116,6 +116,10 @@ COLS = {
     "combo":       r"|C{4.0cm}|p{11.5cm}|",
     # per-girder check tables (Chapter 5)
     "check5":      r"|C{2.5cm}|C{3.5cm}|C{3.5cm}|>{\centering\arraybackslash}p{4.2cm}|C{1.8cm}|",
+    # vehicular live load: S.N. | vehicle | clause | impact factor | clause (Chapter 3)
+    "ll_vehicle":  r"|C{1.0cm}|L{4.4cm}|C{2.4cm}|C{3.2cm}|C{2.4cm}|",
+    # parameter | value | unit | reference (Chapter 3 force / footway tables)
+    "pvur":        r"|L{4.6cm}|C{4.4cm}|C{2.0cm}|C{3.2cm}|",
     # bill of materials (Chapter 7)
     "bom":         r"|C{1.0cm}|L{3.8cm}|C{2.6cm}|C{1.8cm}|C{1.8cm}|C{1.8cm}|C{1.8cm}|",
 }
@@ -262,7 +266,7 @@ NBCLINE_DEF = r"""
 \makeatother
 """
 
-_IN_GROUP_ROW_END = _re.compile(r"\\\\(\[[^\]\n]*\])?(\s*)\\cline\{([^}]*)\}")
+_IN_GROUP_ROW_END = _re.compile(r"\\\\\*?(\[[^\]\n]*\])?(\s*)\\cline\{([^}]*)\}")
 
 
 def keep_groups_together(tex):
